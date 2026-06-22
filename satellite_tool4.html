@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>CWA 衛星雲圖網址產生器</title>
+<style>
+  body {
+    font-family: "Noto Sans TC", sans-serif;
+    background-color: #f8f9fa;
+    margin: 20px;
+  }
+  .container {
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 20px;
+    background: #fff;
+    max-width: 900px;
+    margin: auto;
+  }
+  #urlList {
+    width: 100%;
+    height: 260px;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 6px;
+    background: #fcfcfc;
+  }
+  button {
+    margin: 4px;
+    padding: 6px 12px;
+    cursor: pointer;
+  }
+  img {
+    max-width: 100%;
+    max-height: 800px;
+    border: 1px solid #ccc;
+    margin-top: 10px;
+    display: none;
+    /* 新增縮放轉換相關樣式 */
+    transition: transform 0.1s;
+    transform-origin: center top;
+    cursor: zoom-in;
+  }
+  .url-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px dashed #ccc;
+    padding: 2px 0;
+  }
+  .url-item a {
+    color: #0056b3;
+    text-decoration: none;
+    word-break: break-all;
+    cursor: pointer;
+  }
+  .url-item a:hover {
+    text-decoration: underline;
+  }
+</style>
+</head>
+
+<body>
+<div class="container">
+  <h2>🌏 CWA 衛星雲圖網址產生器（台中市立惠文高中 吳秉勳 製作）</h2>
+
+  <label>衛星雲圖種類：</label>
+  <select id="product">
+    <optgroup label="臺灣">
+      <option value="TWI_VIS_Gray_1350">可見光</option>
+      <option value="TWI_IR1_CR_800">紅外線-彩色</option>
+      <option value="TWI_IR1_MB_800">紅外線-色調強化</option>
+      <option value="TWI_IR1_Gray_800">紅外線-黑白</option>
+      <option value="TWI_TRGB_1350" selected>真實色</option>
+    </optgroup>
+    <optgroup label="東亞">
+      <option value="LCC_VIS_Gray_2750">可見光</option>
+      <option value="LCC_IR1_CR_2750">紅外線-彩色</option>
+      <option value="LCC_IR1_MB_2750">紅外線-色調強化</option>
+      <option value="LCC_IR1_Gray_2750">紅外線-黑白</option>
+      <option value="LCC_TRGB_2750">真實色</option>
+    </optgroup>
+    <optgroup label="全景">
+      <option value="FDK_VIS_Gray_2750">可見光</option>
+      <option value="FDK_IR1_CR_2750">紅外線-彩色</option>
+      <option value="FDK_IR1_MB_2750">紅外線-色調強化</option>
+      <option value="FDK_IR1_Gray_2750">紅外線-黑白</option>
+      <option value="FDK_TRGB_2750">真實色</option>
+    </optgroup>
+  </select><br><br>
+
+  年份：
+  <select id="year">
+    <option>2026</option><option>2027</option>
+    <option>2028</option><option>2029</option><option>2030</option>
+  </select><br><br>
+
+  起始日期：<input type="date" id="startDate">
+  結束日期：<input type="date" id="endDate"><br><br>
+
+  起始時間：
+  <select id="startHour"></select>:<select id="startMin"></select>
+  結束時間：
+  <select id="endHour"></select>:<select id="endMin"></select><br><br>
+
+  <button onclick="generateURLs()">產生網址</button>
+  <button onclick="copyURLs()">複製網址</button>
+  <button onclick="previewFirst()">預覽圖片</button>
+  <button onclick="autoPlay()">自動播放</button>
+  <button onclick="stopPlay()">停止播放</button>
+
+  <p id="count"></p>
+
+  <div id="urlList"></div>
+
+  <div style="text-align:center;">
+    <img id="preview" src="">
+  </div>
+</div>
+
+<script>
+let urls = [], index = 0, timer = null;
+let currentScale = 1; // 新增：用於追蹤縮放比例
+
+function pad2(n){return n<10?'0'+n:n;}
+
+function initDefaults() {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = pad2(today.getMonth() + 1);
+  const dd = pad2(today.getDate());
+  const todayStr = `${yyyy}-${mm}-${dd}`;
+  document.getElementById("startDate").value = todayStr;
+  document.getElementById("endDate").value = todayStr;
+
+  const hours = Array.from({length:24},(_,i)=>pad2(i));
+  const mins = ["00","10","20","30","40","50"];
+  for (const id of ["startHour","endHour"]) {
+    const sel = document.getElementById(id);
+    hours.forEach(h=>sel.innerHTML += `<option>${h}</option>`);
+  }
+  for (const id of ["startMin","endMin"]) {
+    const sel = document.getElementById(id);
+    mins.forEach(m=>sel.innerHTML += `<option>${m}</option>`);
+  }
+  const curH = today.getHours(), curM = today.getMinutes();
+  const truncM = Math.floor(curM / 10) * 10;
+  document.getElementById("startHour").value = pad2((curH - 2 + 24) % 24);
+  document.getElementById("startMin").value = pad2(truncM);
+  document.getElementById("endHour").value = pad2((curH - 1 + 24) % 24);
+  document.getElementById("endMin").value = pad2(truncM);
+}
+
+function parseLocalDateTime(y,m,d,h,min){
+  return new Date(Number(y), Number(m)-1, Number(d), Number(h), Number(min), 0);
+}
+
+function generateURLs() {
+  const product = document.getElementById("product").value;
+  const year = document.getElementById("year").value;
+  const sd = document.getElementById("startDate").value;
+  const ed = document.getElementById("endDate").value;
+  if (!sd || !ed) { alert("請選擇日期範圍！"); return; }
+
+  const [sY,sM,sD] = sd.split("-");
+  const [eY,eM,eD] = ed.split("-");
+  const stH = document.getElementById("startHour").value;
+  const stM = document.getElementById("startMin").value;
+  const etH = document.getElementById("endHour").value;
+  const etM = document.getElementById("endMin").value;
+
+  let start = parseLocalDateTime(year, sM, sD, stH, stM);
+  let end = parseLocalDateTime(year, eM, eD, etH, etM);
+  if (end < start) { alert("結束時間不能早於開始時間！"); return; }
+
+  urls = [];
+  while (start <= end) {
+    const stamp = `${year}-${pad2(start.getMonth()+1)}-${pad2(start.getDate())}-${pad2(start.getHours())}-${pad2(start.getMinutes())}`;
+    urls.push(`https://www.cwa.gov.tw/Data/satellite/${product}/${product}-${stamp}.jpg`);
+    start.setMinutes(start.getMinutes() + 10);
+  }
+
+  const listDiv = document.getElementById("urlList");
+  listDiv.innerHTML = "";
+  urls.forEach((u, i) => {
+    const div = document.createElement("div");
+    div.className = "url-item";
+    div.innerHTML = `<a onclick="previewImage('${u}', ${i})">${u}</a>`;
+    listDiv.appendChild(div);
+  });
+
+  document.getElementById("count").innerText = `✅ 產生 ${urls.length} 筆網址`;
+}
+
+function copyURLs() {
+  if (!urls.length) return alert("目前沒有網址可以複製！");
+  const text = urls.join("\n");
+  navigator.clipboard.writeText(text);
+  alert("網址已複製！");
+}
+
+function previewImage(url, i) {
+  index = i;
+  const img = document.getElementById("preview");
+  img.src = url;
+  img.style.display = "block";
+}
+
+function previewFirst() {
+  if (!urls.length) return alert("請先產生網址！");
+  index = 0;
+  previewImage(urls[index], index);
+}
+
+function autoPlay() {
+  if (!urls.length) return alert("請先產生網址！");
+  const img = document.getElementById("preview");
+  img.style.display = "block";
+  clearInterval(timer);
+  timer = setInterval(() => {
+    index = (index + 1) % urls.length;
+    img.src = urls[index];
+  }, 100);
+}
+
+function stopPlay() {
+  clearInterval(timer);
+  timer = null;
+}
+
+// 新增：滾輪縮放邏輯
+const previewEl = document.getElementById("preview");
+previewEl.addEventListener("wheel", function(e) {
+  e.preventDefault(); // 防止網頁跟著捲動
+  const zoomStep = 0.1;
+  if (e.deltaY < 0) {
+    currentScale += zoomStep; // 滾輪向上：放大
+  } else {
+    currentScale -= zoomStep; // 滾輪向下：縮小
+  }
+  
+  // 限制最小縮放為 0.2 倍，最大縮放為 5 倍
+  currentScale = Math.min(Math.max(0.2, currentScale), 5);
+  previewEl.style.transform = `scale(${currentScale})`;
+}, { passive: false });
+
+initDefaults();
+</script>
+</body>
+</html>
