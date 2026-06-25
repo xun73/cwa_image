@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<title>CWA 衛星雲圖網址產生器</title>
+<title>CWA 衛星雲圖／雷達回波圖 網址產生器</title>
 <style>
   body {
     font-family: "Noto Sans TC", sans-serif;
@@ -63,32 +63,16 @@
 
 <body>
 <div class="container">
-  <h2>🌏 CWA 衛星雲圖網址產生器（台中市立惠文高中 吳秉勳 製作）</h2>
+  <h2>🌏 CWA 衛星雲圖／雷達回波圖 網址產生器（台中市立惠文高中 吳秉勳 製作）</h2>
 
-  <label>衛星雲圖種類：</label>
-  <select id="product">
-    <optgroup label="臺灣">
-      <option value="TWI_VIS_Gray_1350">可見光</option>
-      <option value="TWI_IR1_CR_800">紅外線-彩色</option>
-      <option value="TWI_IR1_MB_800">紅外線-色調強化</option>
-      <option value="TWI_IR1_Gray_800">紅外線-黑白</option>
-      <option value="TWI_TRGB_1350">真實色</option>
-    </optgroup>
-    <optgroup label="東亞">
-      <option value="LCC_VIS_Gray_2750">可見光</option>
-      <option value="LCC_IR1_CR_2750">紅外線-彩色</option>
-      <option value="LCC_IR1_MB_2750">紅外線-色調強化</option>
-      <option value="LCC_IR1_Gray_2750">紅外線-黑白</option>
-      <option value="LCC_TRGB_2750" selected>真實色</option>
-    </optgroup>
-    <optgroup label="全景">
-      <option value="FDK_VIS_Gray_2750">可見光</option>
-      <option value="FDK_IR1_CR_2750">紅外線-彩色</option>
-      <option value="FDK_IR1_MB_2750">紅外線-色調強化</option>
-      <option value="FDK_IR1_Gray_2750">紅外線-黑白</option>
-      <option value="FDK_TRGB_2750">真實色</option>
-    </optgroup>
-  </select><br><br>
+  <label>資料類型：</label>
+  <input type="radio" name="mode" value="satellite" id="modeSat" checked onchange="switchMode()">
+  <label for="modeSat">衛星雲圖</label>
+  <input type="radio" name="mode" value="radar" id="modeRad" onchange="switchMode()">
+  <label for="modeRad">雷達回波圖</label><br><br>
+
+  <label id="productLabel">衛星雲圖種類：</label>
+  <select id="product"></select><br><br>
 
   年份：
   <select id="year">
@@ -125,6 +109,79 @@ let currentScale = 1; // 新增：用於追蹤縮放比例
 
 function pad2(n){return n<10?'0'+n:n;}
 
+const satProducts = {
+  "TWI": { label: "臺灣", items: [
+    ["TWI_VIS_Gray_1350", "可見光"],
+    ["TWI_IR1_CR_800", "紅外線-彩色"],
+    ["TWI_IR1_MB_800", "紅外線-色調強化"],
+    ["TWI_IR1_Gray_800", "紅外線-黑白"],
+    ["TWI_TRGB_1350", "真實色"]
+  ]},
+  "LCC": { label: "東亞", items: [
+    ["LCC_VIS_Gray_2750", "可見光"],
+    ["LCC_IR1_CR_2750", "紅外線-彩色"],
+    ["LCC_IR1_MB_2750", "紅外線-色調強化"],
+    ["LCC_IR1_Gray_2750", "紅外線-黑白"],
+    ["LCC_TRGB_2750", "真實色"]
+  ]},
+  "FDK": { label: "全景", items: [
+    ["FDK_VIS_Gray_2750", "可見光"],
+    ["FDK_IR1_CR_2750", "紅外線-彩色"],
+    ["FDK_IR1_MB_2750", "紅外線-色調強化"],
+    ["FDK_IR1_Gray_2750", "紅外線-黑白"],
+    ["FDK_TRGB_2750", "真實色"]
+  ]}
+};
+
+const radProducts = [
+  { label: "臺灣全域（含地形）", items: [
+    ["CV1_3600", "大圖"], ["CV1_1000", "小圖"]
+  ]},
+  { label: "臺灣全域（不含地形）", items: [
+    ["CV2_3600", "大圖"], ["CV2_1000", "小圖"]
+  ]},
+  { label: "臺灣區域（含地形）", items: [
+    ["CV1_TW_3600", "大圖"], ["CV1_TW_1000", "小圖"]
+  ]},
+  { label: "臺灣區域（不含地形）", items: [
+    ["CV2_TW_3600", "大圖"], ["CV2_TW_1000", "小圖"]
+  ]}
+];
+
+function switchMode() {
+  const mode = document.querySelector('input[name="mode"]:checked').value;
+  const sel = document.getElementById("product");
+  const label = document.getElementById("productLabel");
+  sel.innerHTML = "";
+  if (mode === "satellite") {
+    label.textContent = "衛星雲圖種類：";
+    for (const key in satProducts) {
+      const g = satProducts[key];
+      const og = document.createElement("optgroup");
+      og.label = g.label;
+      g.items.forEach(([val,text])=>{
+        const opt = document.createElement("option");
+        opt.value = val; opt.textContent = text;
+        if (val === "LCC_TRGB_2750") opt.selected = true;
+        og.appendChild(opt);
+      });
+      sel.appendChild(og);
+    }
+  } else {
+    label.textContent = "雷達回波圖種類：";
+    radProducts.forEach(g=>{
+      const og = document.createElement("optgroup");
+      og.label = g.label;
+      g.items.forEach(([val,text])=>{
+        const opt = document.createElement("option");
+        opt.value = val; opt.textContent = text;
+        og.appendChild(opt);
+      });
+      sel.appendChild(og);
+    });
+  }
+}
+
 function initDefaults() {
   const today = new Date();
   const yyyy = today.getFullYear();
@@ -157,6 +214,7 @@ function parseLocalDateTime(y,m,d,h,min){
 }
 
 function generateURLs() {
+  const mode = document.querySelector('input[name="mode"]:checked').value;
   const product = document.getElementById("product").value;
   const year = document.getElementById("year").value;
   const sd = document.getElementById("startDate").value;
@@ -176,8 +234,15 @@ function generateURLs() {
 
   urls = [];
   while (start <= end) {
-    const stamp = `${year}-${pad2(start.getMonth()+1)}-${pad2(start.getDate())}-${pad2(start.getHours())}-${pad2(start.getMinutes())}`;
-    urls.push(`https://www.cwa.gov.tw/Data/satellite/${product}/${product}-${stamp}.jpg`);
+    const y = year, mo = pad2(start.getMonth()+1), d = pad2(start.getDate());
+    const h = pad2(start.getHours()), mi = pad2(start.getMinutes());
+    if (mode === "satellite") {
+      const stamp = `${y}-${mo}-${d}-${h}-${mi}`;
+      urls.push(`https://www.cwa.gov.tw/Data/satellite/${product}/${product}-${stamp}.jpg`);
+    } else {
+      const stamp = `${y}${mo}${d}${h}${mi}`;
+      urls.push(`https://www.cwa.gov.tw/Data/radar/${product}_${stamp}.png`);
+    }
     start.setMinutes(start.getMinutes() + 10);
   }
 
@@ -245,6 +310,7 @@ previewEl.addEventListener("wheel", function(e) {
   previewEl.style.transform = `scale(${currentScale})`;
 }, { passive: false });
 
+switchMode();
 initDefaults();
 </script>
 </body>
