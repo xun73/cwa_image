@@ -134,12 +134,8 @@ const satProducts = {
 };
 
 const radProducts = [
-  { label: "無地形", items: [
-    ["CV1_3600", "大圖"]
-  ]},
-  { label: "有地形", items: [
-    ["CV2_3600", "大圖"]
-  ]}
+  ["CV1_3600", "無地形"],
+  ["CV2_3600", "有地形"]
 ];
 
 function switchMode() {
@@ -163,15 +159,10 @@ function switchMode() {
     }
   } else {
     label.textContent = "雷達回波圖種類：";
-    radProducts.forEach(g=>{
-      const og = document.createElement("optgroup");
-      og.label = g.label;
-      g.items.forEach(([val,text])=>{
-        const opt = document.createElement("option");
-        opt.value = val; opt.textContent = text;
-        og.appendChild(opt);
-      });
-      sel.appendChild(og);
+    radProducts.forEach(([val,text])=>{
+      const opt = document.createElement("option");
+      opt.value = val; opt.textContent = text;
+      sel.appendChild(opt);
     });
   }
 }
@@ -261,6 +252,7 @@ function copyURLs() {
 
 function previewImage(url, i) {
   index = i;
+  stopPlay();
   const img = document.getElementById("preview");
   img.src = url;
   img.style.display = "block";
